@@ -59,7 +59,7 @@ public class GPUImageVignetteFilter extends GPUImageFilter {
     private float mVignetteEnd;
     
     public GPUImageVignetteFilter() {
-        this(new PointF(), new float[] {0.0f, 0.0f, 0.0f}, 0.3f, 0.75f);
+    	this(new PointF(0.5f,0.5f), new float[] {0.0f, 0.0f, 0.0f}, 0.3f, 0.75f);    
     }
     
     public GPUImageVignetteFilter(final PointF vignetteCenter, final float[] vignetteColor, final float vignetteStart, final float vignetteEnd) {
@@ -68,7 +68,6 @@ public class GPUImageVignetteFilter extends GPUImageFilter {
         mVignetteColor = vignetteColor;
         mVignetteStart = vignetteStart;
         mVignetteEnd = vignetteEnd;
-        
     }
 
     @Override

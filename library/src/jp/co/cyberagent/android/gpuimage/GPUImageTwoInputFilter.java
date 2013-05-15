@@ -66,6 +66,11 @@ public class GPUImageTwoInputFilter extends GPUImageFilter {
             setBitmap(mBitmap);
         }
     }
+    
+    public Bitmap getBitmap()
+    {
+    	return mBitmap;
+    }
 
     public void setBitmap(final Bitmap bitmap) {
         mBitmap = bitmap;

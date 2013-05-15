@@ -17,6 +17,7 @@
 package jp.co.cyberagent.android.gpuimage;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.opengl.GLSurfaceView;
@@ -28,7 +29,7 @@ public class GPUImageView extends GLSurfaceView {
 
     private GPUImage mGPUImage;
     private GPUImageFilter mFilter;
-    private float mRatio = 0.0f;
+    private float mRatio = 1.0f;
 
     public GPUImageView(Context context) {
         super(context);
@@ -39,7 +40,22 @@ public class GPUImageView extends GLSurfaceView {
         super(context, attrs);
         init();
     }
+    
+    public void saveState(SharedPreferences prefs)
+	{
+    	mGPUImage.saveState(prefs);
+	}
 
+	public void restoreState(SharedPreferences prefs)
+	{
+		mGPUImage.restoreState(prefs);
+	}
+
+	public void deleteImage()
+    {
+    	mGPUImage.deleteImage();
+    }
+    
     private void init() {
         mGPUImage = new GPUImage(getContext());
         mGPUImage.setGLSurfaceView(this);
@@ -76,6 +92,21 @@ public class GPUImageView extends GLSurfaceView {
         mGPUImage.deleteImage();
     }
 
+    public void translate(int dx,int dy)
+    {
+    	mGPUImage.translate(dx,dy);
+        requestRender();
+    }    
+    
+    /**
+     * Set the scale type of GPUImage.
+     *
+     * @param scaleType the new ScaleType
+     */
+    public void setScaleType(GPUImage.ScaleType scaleType) {
+        mGPUImage.setScaleType(scaleType);
+    }
+    
     /**
      * Set the filter to be applied on the image.
      *

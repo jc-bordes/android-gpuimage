@@ -19,6 +19,7 @@ package jp.co.cyberagent.android.gpuimage;
 import android.annotation.TargetApi;
 import android.app.ActivityManager;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.ConfigurationInfo;
 import android.database.Cursor;
 import android.graphics.Bitmap;
@@ -71,6 +72,22 @@ public class GPUImage {
         mRenderer = new GPUImageRenderer(mFilter);
     }
 
+    public void saveState(SharedPreferences prefs)
+	{
+		mRenderer.saveState(prefs);
+	}
+
+	public void restoreState(SharedPreferences prefs)
+	{
+		mRenderer.restoreState(prefs);
+	}
+    
+	public void translate(int dx,int dy)
+    {
+    	mRenderer.translate(dx,dy);
+        requestRender();
+    }
+	
     /**
      * Checks if OpenGL ES 2.0 is supported on the current device.
      * 

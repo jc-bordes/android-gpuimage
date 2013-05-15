@@ -16,7 +16,10 @@
 
 package jp.co.cyberagent.android.gpuimage;
 
+import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.SurfaceTexture;
@@ -25,6 +28,7 @@ import android.hardware.Camera.PreviewCallback;
 import android.hardware.Camera.Size;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView.Renderer;
+import jp.co.cyberagent.android.gpuimage.GPUImage.ScaleType;
 import jp.co.cyberagent.android.gpuimage.util.TextureRotationUtil;
 
 import javax.microedition.khronos.egl.EGLConfig;
@@ -65,6 +69,9 @@ public class GPUImageRenderer implements Renderer, PreviewCallback {
     private int mImageHeight;
     private int mAddedPadding;
 
+    private float mDeltaX=0f;
+    private float mDeltaY=0f;
+    
     private final Queue<Runnable> mRunOnDraw;
     private Rotation mRotation;
     private boolean mFlipHorizontal;
@@ -85,27 +92,63 @@ public class GPUImageRenderer implements Renderer, PreviewCallback {
                 .asFloatBuffer();
         setRotation(Rotation.NORMAL, false, false);
     }
+    
+	public void saveState(SharedPreferences prefs)
+	{
+		if(prefs==null)
+			return;
+		
+		Editor ed=prefs.edit();
+		if(ed==null)
+			return;
+
+		ed.putFloat("EffectsManager.imageDeltaX",mDeltaX);
+		ed.putFloat("EffectsManager.imageDeltaY",mDeltaY);
+		
+		ed.commit();
+	}
+
+	public void restoreState(SharedPreferences prefs)
+	{
+		if(prefs==null)
+			return;
+
+		mDeltaX=prefs.getFloat("EffectsManager.imageDeltaX",0);
+		mDeltaY=prefs.getFloat("EffectsManager.imageDeltaY",0);
+	}
+
+	public void translate(int dx,int dy)
+    {
+    	mDeltaX+=dx;
+    	mDeltaY+=dy;
+    	adjustImageScaling();
+    }
 
     @Override
     public void onSurfaceCreated(final GL10 unused, final EGLConfig config) {
-        GLES20.glClearColor(0, 0, 0, 1);
+        GLES20.glClearColor(0, 0, 0, 0);
         GLES20.glDisable(GLES20.GL_DEPTH_TEST);
+        GLES20.glEnable(GLES20.GL_BLEND);
+        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ZERO);
         mFilter.init();
     }
 
     @Override
     public void onSurfaceChanged(final GL10 gl, final int width, final int height) {
-        mOutputWidth = width;
-        mOutputHeight = height;
-        GLES20.glViewport(0, 0, width, height);
+        mOutputWidth=width;
+        mOutputHeight=height;
+        
+        GLES20.glViewport(0,0,width,height);
         GLES20.glUseProgram(mFilter.getProgram());
-        mFilter.onOutputSizeChanged(width, height);
+        mFilter.onOutputSizeChanged(width,height);
+        adjustImageScaling();
         synchronized (mSurfaceChangedWaiter) {
             mSurfaceChangedWaiter.notifyAll();
         }
     }
-
-    @Override
+    
+    @SuppressLint("WrongCall")
+	@Override
     public void onDrawFrame(final GL10 gl) {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
         synchronized (mRunOnDraw) {
@@ -240,8 +283,17 @@ public class GPUImageRenderer implements Renderer, PreviewCallback {
     protected int getFrameHeight() {
         return mOutputHeight;
     }
-
-    private void adjustImageScaling() {
+    
+    private void adjustImageScaling()
+    {
+    	if(mScaleType==ScaleType.CENTER_INSIDE)
+    		adjustImageScalingFitCenter();
+    	else
+    		adjustImageScalingCrop();
+    }
+    
+    private void adjustImageScalingFitCenter() 
+    {
         float outputWidth = mOutputWidth;
         float outputHeight = mOutputHeight;
         if (mRotation == Rotation.ROTATION_270 || mRotation == Rotation.ROTATION_90) {
@@ -265,26 +317,81 @@ public class GPUImageRenderer implements Renderer, PreviewCallback {
 
         float[] cube = CUBE;
         float[] textureCords = TextureRotationUtil.getRotation(mRotation, mFlipHorizontal, mFlipVertical);
-        if (mScaleType == GPUImage.ScaleType.CENTER_CROP) {
-            float distHorizontal = (1 / ratioWidth - 1) / 2;
-            float distVertical = (1 / ratioHeight - 1) / 2;
-            textureCords = new float[]{
-                    addDistance(textureCords[0], distVertical), addDistance(textureCords[1], distHorizontal),
-                    addDistance(textureCords[2], distVertical), addDistance(textureCords[3], distHorizontal),
-                    addDistance(textureCords[4], distVertical), addDistance(textureCords[5], distHorizontal),
-                    addDistance(textureCords[6], distVertical), addDistance(textureCords[7], distHorizontal),
-            };
-        } else {
-            cube = new float[]{
-                    CUBE[0] * ratioWidth, CUBE[1] * ratioHeight,
-                    CUBE[2] * ratioWidth, CUBE[3] * ratioHeight,
-                    CUBE[4] * ratioWidth, CUBE[5] * ratioHeight,
-                    CUBE[6] * ratioWidth, CUBE[7] * ratioHeight,
-            };
-        }
-
+        cube = new float[]{
+            CUBE[0] * ratioWidth, CUBE[1] * ratioHeight,
+            CUBE[2] * ratioWidth, CUBE[3] * ratioHeight,
+            CUBE[4] * ratioWidth, CUBE[5] * ratioHeight,
+            CUBE[6] * ratioWidth, CUBE[7] * ratioHeight,
+        };
+    
         mGLCubeBuffer.clear();
         mGLCubeBuffer.put(cube).position(0);
+        mGLTextureBuffer.clear();
+        mGLTextureBuffer.put(textureCords).position(0);
+    }
+
+    private void adjustImageScalingCrop() 
+    {
+    	if(mOutputWidth==0||mOutputHeight==0||mImageWidth==0||mImageHeight==0)
+    		return;
+    	
+    	float imageRatio=(float)mImageWidth/(float)mImageHeight;
+    	
+    	float rx=1f;
+    	float ry=1f;
+    	float scale=1f;
+    	
+    	if(imageRatio<1f)
+    	{
+    		scale=(float)mImageWidth/(float)Math.min(mOutputWidth,mOutputHeight);
+    		ry=imageRatio;
+    	}
+    	else
+    	{
+    		scale=(float)mImageHeight/(float)Math.min(mOutputWidth,mOutputHeight);
+    		rx=1/imageRatio;
+    	}
+    	
+    	float dx=mDeltaX;
+    	float dy=mDeltaY;
+		float max;
+    	
+    	if(dx>0)
+    		dx=0;
+    	else
+    	{
+    		max=((float)mImageWidth/scale)-(float)Math.min(mOutputWidth,mOutputHeight);
+    		if(max<0)
+    			max=0;
+    		if(Math.abs(dx)>Math.abs(max))
+    			dx=max*-1;
+    	}
+
+    	if(dy>0)
+    		dy=0;
+    	else
+    	{
+    		max=((float)mImageHeight/scale)-(float)Math.min(mOutputWidth,mOutputHeight);
+    		if(max<0)
+    			max=0;
+    		if(Math.abs(dy)>Math.abs(max))
+    			dy=max*-1;
+    	}
+    	
+    	mDeltaX=dx;
+    	mDeltaY=dy;
+    	
+    	dx=rx*(dx/(float)Math.min(mOutputWidth,mOutputHeight));
+    	dy=ry*(dy/(float)Math.min(mOutputWidth,mOutputHeight));
+    	
+        float[] textureCords = new float[]{
+        		-dx,ry-dy,
+        		rx-dx,ry-dy,
+        		-dx,-dy,
+        		rx-dx,-dy};
+
+        mGLCubeBuffer.clear();
+        mGLCubeBuffer.put(CUBE).position(0);
         mGLTextureBuffer.clear();
         mGLTextureBuffer.put(textureCords).position(0);
     }
