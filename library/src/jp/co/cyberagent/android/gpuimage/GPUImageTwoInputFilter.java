@@ -16,7 +16,9 @@
 
 package jp.co.cyberagent.android.gpuimage;
 
+import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.opengl.GLES20;
 import jp.co.cyberagent.android.gpuimage.util.TextureRotationUtil;
 
@@ -67,11 +69,6 @@ public class GPUImageTwoInputFilter extends GPUImageFilter {
         }
     }
     
-    public Bitmap getBitmap()
-    {
-    	return mBitmap;
-    }
-
     public void setBitmap(final Bitmap bitmap) {
         mBitmap = bitmap;
         runOnDraw(new Runnable() {
@@ -82,6 +79,20 @@ public class GPUImageTwoInputFilter extends GPUImageFilter {
                 }
             }
         });
+    }
+    
+    public Bitmap getBitmap()
+    {
+    	return mBitmap;
+    }
+
+    public void recycleBitmap()
+    {
+    	if(mBitmap!=null&&!mBitmap.isRecycled())
+    	{
+    		mBitmap.recycle();
+    		mBitmap=null;
+    	}
     }
 
     public void onDestroy() {
