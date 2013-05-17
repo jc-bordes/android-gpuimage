@@ -54,8 +54,8 @@ public class GPUImageFilter {
     protected int mGLAttribPosition;
     protected int mGLUniformTexture;
     protected int mGLAttribTextureCoordinate;
-    private int mOutputWidth;
-    private int mOutputHeight;
+    protected int mOutputWidth;
+    protected int mOutputHeight;
     private boolean mIsInitialized;
 
     public GPUImageFilter() {
