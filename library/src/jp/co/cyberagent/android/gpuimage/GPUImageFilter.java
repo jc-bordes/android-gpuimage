@@ -18,6 +18,7 @@ package jp.co.cyberagent.android.gpuimage;
 
 import android.content.Context;
 import android.content.res.AssetManager;
+import android.graphics.Color;
 import android.graphics.PointF;
 import android.opengl.GLES20;
 
@@ -248,6 +249,16 @@ public class GPUImageFilter {
                 GLES20.glUniformMatrix4fv(location, 1, false, matrix, 0);
             }
         });
+    }
+
+    protected void setColor(int location,int color)
+    {
+        float a=(float)Color.alpha(color)/255f;
+        float r=(float)Color.red(color)/255f;
+        float g=(float)Color.green(color)/255f;
+        float b=(float)Color.blue(color)/255f;
+        float[] c={r,g,b,a};
+        setFloatVec4(location,c);
     }
 
     protected void runOnDraw(final Runnable runnable) {
